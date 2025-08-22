@@ -1,0 +1,82 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs "NodeJS"     // Pre-configured NodeJS in Jenkins
+        dotnet "dotnet6"    // Pre-configured .NET SDK (6 or above)
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/MekalaKaveri18/Online_Pustak.git', branch: 'main'
+            }
+        }
+
+        stage('Backend - Restore & Build') {
+            steps {
+                dir('Backend_pustak') {
+                    bat 'dotnet restore'
+                    bat 'dotnet build --configuration Release'
+                }
+            }
+        }
+
+        stage('Backend - Test') {
+            steps {
+                dir('Backend_pustak') {
+                    bat 'dotnet test --configuration Release --no-build'
+                }
+            }
+        }
+
+        stage('Backend - Publish') {
+            steps {
+                dir('Backend_pustak') {
+                    bat 'dotnet publish -c Release -o publish/'
+                }
+            }
+        }
+
+        stage('Frontend - Install Dependencies') {
+            steps {
+                dir('src') {
+                    bat 'npm install'
+                }
+            }
+        }
+
+        stage('Frontend - Build Angular') {
+            steps {
+                dir('src') {
+                    bat 'npm run build --prod'
+                }
+            }
+        }
+
+        stage('Package Artifacts') {
+            steps {
+                sh '''
+                  mkdir -p artifacts
+                  cp -r Backend_pustak/publish artifacts/backend
+                  cp -r src/dist artifacts/frontend
+                '''
+            }
+        }
+
+        stage('Archive Artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'artifacts/**', fingerprint: true
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Build, Test, and Packaging completed successfully. Artifacts are ready!'
+        }
+        failure {
+            echo '❌ Build failed. Please check logs.'
+        }
+    }
+}
