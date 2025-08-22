@@ -56,10 +56,10 @@ pipeline {
 
         stage('Package Artifacts') {
             steps {
-                sh '''
-                  mkdir -p artifacts
-                  cp -r Backend_pustak/publish artifacts/backend
-                  cp -r src/dist artifacts/frontend
+                bat '''
+                  if not exist artifacts mkdir artifacts
+                  xcopy Backend_pustak\\publish artifacts\\backend /E /I /Y
+                  xcopy src\\dist artifacts\\frontend /E /I /Y
                 '''
             }
         }
