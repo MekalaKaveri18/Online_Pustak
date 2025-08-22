@@ -1,82 +1,67 @@
 pipeline {
     agent any
 
-    tools {
-        nodejs "NodeJS"     // Pre-configured NodeJS in Jenkins
-        dotnet "dotnet6"    // Pre-configured .NET SDK (6 or above)
-    }
-
     stages {
-        stage('Checkout') {
+        stage('Preparation') {
             steps {
-                git url: 'https://github.com/MekalaKaveri18/Online_Pustak.git', branch: 'main'
+                echo 'Cloning repository...'
+                git branch: 'master', url: 'https://github.com/jglick/simple-maven-project-with-tests.git'
             }
         }
 
-        stage('Backend - Restore & Build') {
+        stage('Backend Build') {
             steps {
-                dir('Backend_pustak') {
+                dir('backend') { // adjust if backend folder is different
+                    echo 'Building ASP.NET Core Backend...'
                     bat 'dotnet restore'
                     bat 'dotnet build --configuration Release'
                 }
             }
         }
 
-        stage('Backend - Test') {
+        stage('Frontend Build') {
             steps {
-                dir('Backend_pustak') {
-                    bat 'dotnet test --configuration Release --no-build'
-                }
-            }
-        }
-
-        stage('Backend - Publish') {
-            steps {
-                dir('Backend_pustak') {
-                    bat 'dotnet publish -c Release -o publish/'
-                }
-            }
-        }
-
-        stage('Frontend - Install Dependencies') {
-            steps {
-                dir('src') {
+                dir('src') { // Angular frontend folder
+                    echo 'Building Angular Frontend...'
                     bat 'npm install'
-                }
-            }
-        }
-
-        stage('Frontend - Build Angular') {
-            steps {
-                dir('src') {
                     bat 'npm run build --prod'
                 }
             }
         }
 
-        stage('Package Artifacts') {
-            steps {
-                bat '''
-                  if not exist artifacts mkdir artifacts
-                  xcopy Backend_pustak\\publish artifacts\\backend /E /I /Y
-                  xcopy src\\dist artifacts\\frontend /E /I /Y
-                '''
+        stage('Tests') {
+            parallel {
+                stage('Backend Tests') {
+                    steps {
+                        dir('backend') {
+                            echo 'Running Backend Unit Tests...'
+                            bat 'dotnet test --configuration Release'
+                        }
+                    }
+                }
+                stage('Frontend Tests') {
+                    steps {
+                        dir('src') {
+                            echo 'Running Frontend Unit Tests...'
+                            bat 'npm test'
+                        }
+                    }
+                }
             }
         }
 
-        stage('Archive Artifacts') {
+        stage('Package & Archive') {
             steps {
-                archiveArtifacts artifacts: 'artifacts/**', fingerprint: true
+                echo 'Archiving build artifacts...'
+                archiveArtifacts artifacts: '**/bin/Release/**', fingerprint: true
+                archiveArtifacts artifacts: 'src/dist/**', fingerprint: true
             }
         }
-    }
 
-    post {
-        success {
-            echo '✅ Build, Test, and Packaging completed successfully. Artifacts are ready!'
-        }
-        failure {
-            echo '❌ Build failed. Please check logs.'
+        stage('Deploy') {
+            steps {
+                echo 'Deploy step can be added here (IIS / Docker / Cloud)...'
+            }
         }
     }
 }
